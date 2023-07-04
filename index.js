@@ -3,7 +3,7 @@ const WS = require("websocket").server;
 
 debug = false;
 
-worldServerClient = null
+gameServerClient = null
 
 clients = {}
 
@@ -58,7 +58,7 @@ function parseData(client, clientId, msg) {
 
 
   let code = msg.code;
-  let data = msg.data;
+  let data = msg.data || {};
   data.clientId = clientId;
 
   console.log(msg)
@@ -89,24 +89,27 @@ function parseData(client, clientId, msg) {
 
     case CMDS.new_client: {
       // send data to world server
-      let pmsg = {
+      let pmsg = JSON.stringify({
         "code": CMDS.new_client,
         "clientId": clientId,
-      }
+      })
 
       client.send(pmsg)
-      gameServerClient.send(pmsg)
+      if (gameServerClient) {
+        gameServerClient.send(pmsg)
+      }
 
 
       break;
     }
 
     case CMDS.click: {
-
-      gameServerClient.send({
-        "code": CMDS.right_click,
-        "data": data
-      })
+      if (gameServerClient) {
+        gameServerClient.send(JSON.stringify({
+          "code": CMDS.right_click,
+          "data": data
+        }))
+      }
       break;
     }
 
@@ -121,7 +124,7 @@ function parseData(client, clientId, msg) {
     }
     case CMDS.connect_new_server: {
       gameServerClient = client
-    },
+    }
     case CMDS.updateWorld: {
       // world server client has sent us an updated world model, send this to each client
       let pmsg = {
@@ -130,10 +133,12 @@ function parseData(client, clientId, msg) {
       }
       wsSendAll(pmsg, client);
       break;
+    }
   }
 }
 
 ws.on("request", function(req) {
+  console.log("New Connection");
   const client = req.accept(null, req.origin);
   const clientId = generateuuid();
 
@@ -143,7 +148,10 @@ ws.on("request", function(req) {
 
   client.clientId = clientId;
 
-  parseData(client, clientId, { code: CMDS.new_client, "data": {} });
+  parseData(client, clientId, { 
+    code: CMDS.new_client,
+    "data": {} 
+  });
 
   client.on("message", function(msg) {
     if (msg.type === 'binary') {
@@ -152,12 +160,12 @@ ws.on("request", function(req) {
       parseData(client, clientId, msg.utf8Data);
     }
   });
+  
   client.on("close", function() {
     parseData(client, clientId, { code: CMDS.remove, "data": {} });
     console.log("client disconnected");
   });
-
-
+  
 });
 
 
