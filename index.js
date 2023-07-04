@@ -123,7 +123,13 @@ function parseData(client, clientId, msg) {
       gameServerClient = client
     },
     case CMDS.updateWorld: {
-      
+      // world server client has sent us an updated world model, send this to each client
+      let pmsg = {
+        "code": CMDS.updateWorld,
+        "data": data
+      }
+      wsSendAll(pmsg, client);
+      break;
   }
 }
 
